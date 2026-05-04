@@ -70,4 +70,22 @@ pipeline {
             echo "Pipeline failed. Check logs for more details."
         }
     }
+
+            stage('Kubernetes Deploy') {
+            steps {
+                script {
+                    // Kubernetes config file ni use cheసి deployment చేస్తాం
+                    // 'k8s-config' అనేది Jenkins Credentials లో మీరు క్రియేట్ చేయాల్సిన ID
+                    withKubeConfig([credentialsId: 'k8s-config']) {
+                        // 1. Deployment and Service files ని అప్లై చేయడం
+                        sh "kubectl apply -f k8s/deployment.yaml"
+                        sh "kubectl apply -f k8s/service.yaml"
+                        
+                        // 2. Rolling update ని ఫోర్స్ చేయడం (కొత్త ఇమేజ్ ని పుల్ చేయడానికి)
+                        sh "kubectl rollout restart deployment ekart-deployment"
+                    }
+                }
+            }
+        }
+
 }
