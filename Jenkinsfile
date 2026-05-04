@@ -7,17 +7,16 @@ pipeline {
     }
     
     stages {
-        // --- SECTION 1: CONTINUOUS INTEGRATION (CI) ---
-        
         stage('Git Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Bommalapuram/Ekart.git'
+                // Ee file GitHub lo unte idi auto ga 'scm' nundi checkout chestundi
+                checkout scm
             }
         }
         
         stage('Code Compile & Package') {
             steps {
-                // 'package' JAR file ni create chestundi (Docker build ki idi avasaram)
+                // JAR file build chesthunnam
                 sh "mvn clean package -DskipTests"
             }
         }
@@ -30,11 +29,11 @@ pipeline {
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Build & Push Docker Image') {
             steps {
                 script {
                     withDockerRegistry(credentialsId: 'docker-cred', url: '') {
-                        // Dockerfile folder lo unna path ni -f tho correct ga point chesam
+                        // Dockerfile 'docker/' folder lo undi kabatti -f vaduthunnam
                         sh "docker build -f docker/Dockerfile -t devpractice1/ekart:latest ."
                         sh "docker push devpractice1/ekart:latest"
                     }
@@ -42,50 +41,26 @@ pipeline {
             }
         }
 
-        // --- SECTION 2: CONTINUOUS DEPLOYMENT (CD) ---
-
-        stage('Docker Deploy to Container') {
+        stage('Docker Deploy') {
             steps {
                 script {
-                    // Pata container unte stop chesi remove chestundi, lekapothe skip avthundi (|| true)
+                    // Patha container unte stop chesi remove chesthundhi
                     sh "docker stop ekart-container || true"
                     sh "docker rm ekart-container || true"
 
-                    // Kotha image ni 8070 port meeda run chestundi
+                    // Kotha image ni run chesthundhi
                     sh "docker run -d --name ekart-container -p 8070:8070 devpractice1/ekart:latest"
                 }
             }
         }
     }
 
-    // Future-proofing: Build ayyaka workspace clean cheyyadaniki
     post {
         always {
-            echo "Pipeline execution finished."
+            echo "Build Process Completed."
         }
         success {
-            echo "Deployment successful! Check the application at http://your-ip:8070"
-        }
-        failure {
-            echo "Pipeline failed. Check logs for more details."
+            echo "Successfully Deployed! Access at http://your-server-ip:8070"
         }
     }
-
-            stage('Kubernetes Deploy') {
-            steps {
-                script {
-                    // Kubernetes config file ni use cheసి deployment చేస్తాం
-                    // 'k8s-config' అనేది Jenkins Credentials లో మీరు క్రియేట్ చేయాల్సిన ID
-                    withKubeConfig([credentialsId: 'k8s-config']) {
-                        // 1. Deployment and Service files ని అప్లై చేయడం
-                        sh "kubectl apply -f k8s/deployment.yaml"
-                        sh "kubectl apply -f k8s/service.yaml"
-                        
-                        // 2. Rolling update ని ఫోర్స్ చేయడం (కొత్త ఇమేజ్ ని పుల్ చేయడానికి)
-                        sh "kubectl rollout restart deployment ekart-deployment"
-                    }
-                }
-            }
-        }
-
 }
